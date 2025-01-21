@@ -39,7 +39,7 @@ app.post('/login', async (req, res) => {
     const result = await query(sqlQuery, [username, password]);
 
     if (result.rows.length == 1) {
-      res.status(200).json({ message: 'Login successful', user: result.rows[0], hello:123 });
+      res.status(200).json({ message: 'Login successful', user: result.rows[0] });
     } else {
       res.status(401).json({ error: 'Invalid credentials' });
     }
@@ -52,23 +52,7 @@ app.post('/login', async (req, res) => {
 
 
 
-app.post('/login', async (req, res) => {
-  const { username, password } = req.body;
 
-  if (!username || !password) {
-    return res.status(400).json({ error: 'Username and password are required.' });
-  }
-
-  try {
-    const sqlQuery = 'SELECT * FROM users WHERE username = $1 AND password = $2';
-    const result = await query(sqlQuery, [username, password]);
-
-
-  } catch (error) {
-    console.error('Error during login:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
 
 
 
@@ -121,6 +105,42 @@ app.post('/set-history', async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
+
+
+
+app.post('/get-full-history', async (req, res) => {
+  try {
+    const sqlQuery = `
+      SELECT username, created_at, start_destination, end_destination, map_type
+      FROM history
+      ORDER BY username, created_at;
+    `;
+
+    const result = await query(sqlQuery);
+    
+    const groupedData = result.rows.reduce((acc, row) => {
+      const { username, created_at, start_destination, end_destination, map_type} = row;
+      
+      let user = acc.find((u) => u.userName === username);
+      if (!user) {
+        user = { userName: username, date: created_at, locations: [] };
+        acc.push(user);
+      }
+      
+      user.locations.push({ startLocation: start_destination, endLocation: end_destination, maptype:map_type});
+      return acc;
+    }, []);
+
+    res.status(200).json({
+      message: 'Grouped history retrieved successfully',
+      data: groupedData,
+    });
+  } catch (error) {
+    console.error('Error retrieving grouped history:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 
 
 app.listen(PORT, () => {
